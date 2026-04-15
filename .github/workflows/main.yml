@@ -28,28 +28,27 @@ jobs:
           cache: true
 
       - name: Install Dart dependencies
-        run: |
-          pwd
-          ls -la
-          flutter pub get
+        working-directory: iostennis
+        run: flutter pub get
 
       - name: Install iOS CocoaPods dependencies
-        working-directory: ios
+        working-directory: iostennis/ios
         run: pod install --repo-update
 
       - name: Generate iOS Xcode project files
+        working-directory: iostennis
         run: flutter build ios --no-codesign --release
 
       - name: Archive with xcodebuild
         run: |
-          cd ios
+          cd iostennis/ios
           xcodebuild \
             -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath ../build/ios/derivedData \
-            -archivePath ../build/Runner.xcarchive \
+            -derivedDataPath ../../build/ios/derivedData \
+            -archivePath ../../build/Runner.xcarchive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
             archive
