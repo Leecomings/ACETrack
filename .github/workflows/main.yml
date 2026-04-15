@@ -28,15 +28,16 @@ jobs:
           cache: true
 
       - name: Install Dart dependencies
-        working-directory: ${{ github.workspace }}
-        run: flutter pub get
+        run: |
+          pwd
+          ls -la
+          flutter pub get
 
       - name: Install iOS CocoaPods dependencies
         working-directory: ios
         run: pod install --repo-update
 
       - name: Generate iOS Xcode project files
-        working-directory: ${{ github.workspace }}
         run: flutter build ios --no-codesign --release
 
       - name: Archive with xcodebuild
