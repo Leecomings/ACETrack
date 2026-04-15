@@ -33,18 +33,17 @@ jobs:
 
       - name: Generate iOS Xcode project files
         working-directory: iostennis
-        run: flutter build ios --no-codesign --simulator --release
+        run: flutter build ios --no-codesign --debug --simulator
 
-      - name: Archive with xcodebuild
+      - name: Build with xcodebuild
         run: |
           cd iostennis/ios
           xcodebuild \
             -workspace Runner.xcworkspace \
             -scheme Runner \
-            -configuration Release \
+            -configuration Debug \
             -sdk iphonesimulator \
             -derivedDataPath ../../build/ios/derivedData \
-            -archivePath ../../build/Runner.xcarchive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="" \
-            archive
+            build
