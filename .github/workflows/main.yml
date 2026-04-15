@@ -14,10 +14,12 @@ jobs:
   build-ios:
     name: Build Flutter iOS
     runs-on: macos-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -36,6 +38,10 @@ jobs:
 
       - name: Install Dart dependencies
         run: flutter pub get
+
+      - name: Install iOS CocoaPods dependencies
+        working-directory: ios
+        run: pod install --repo-update
 
       - name: Generate iOS Xcode project files
         run: flutter build ios --no-codesign --release
