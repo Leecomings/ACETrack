@@ -31,10 +31,6 @@ jobs:
         working-directory: iostennis
         run: flutter pub get
 
-      - name: Install iOS CocoaPods dependencies
-        working-directory: iostennis/ios
-        run: pod install --repo-update
-
       - name: Generate iOS Xcode project files
         working-directory: iostennis
         run: flutter build ios --no-codesign --release
