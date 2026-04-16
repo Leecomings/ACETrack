@@ -41,15 +41,22 @@ jobs:
           cd ..
           flutter build ios --release --no-codesign
 
+      - name: Debug build directory
+        working-directory: iostennis
+        run: |
+          ls -la build/ios/
+          ls -la build/ios/iphoneos/
+
       - name: Create IPA
         working-directory: iostennis
         run: |
-          mkdir -p ios/Payload
-          cp -r build/ios/iphoneos/Runner.app ios/Payload/
-          zip -r ios/Runner.ipa ios/Payload/
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r Runner.ipa Payload/
+          ls -la Runner.ipa
 
       - name: Upload iOS IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
-          path: iostennis/ios/Runner.ipa
+          path: iostennis/Runner.ipa
