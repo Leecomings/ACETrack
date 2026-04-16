@@ -40,3 +40,9 @@ jobs:
           pod install
           cd ..
           flutter build ios --no-codesign --debug --simulator
+
+      - name: Upload iOS build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ios-build
+          path: iostennis/build/ios/iphonesimulator/Runner.app
