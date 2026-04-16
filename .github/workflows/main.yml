@@ -1,4 +1,4 @@
-name: Flutter iOS Build
+name: Flutter iOS CI
 
 on:
   push:
@@ -14,8 +14,6 @@ jobs:
   build-ios:
     name: Build Flutter iOS
     runs-on: macos-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
@@ -24,26 +22,23 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.41.6'
           channel: stable
           cache: true
 
-      - name: Install Dart dependencies
+      - name: Install dependencies
         working-directory: iostennis
-        run: flutter pub get
-
-      - name: Generate iOS Xcode project files
-        working-directory: iostennis
-        run: flutter build ios --no-codesign --debug --simulator
-
-      - name: Build with xcodebuild
         run: |
-          cd iostennis/ios
-          xcodebuild \
-            -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -derivedDataPath ../../build/ios/derivedData \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGN_IDENTITY="" \
-            build
+          flutter pub get
+
+      - name: Analyze Flutter code
+        working-directory: iostennis
+        run: |
+          flutter analyze
+
+      - name: Build iOS simulator app
+        working-directory: iostennis
+        run: |
+          flutter clean
+          flutter pub get
+          flutter build ios --no-codesign --simulator

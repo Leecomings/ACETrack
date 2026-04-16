@@ -41,10 +41,10 @@ class MyApp extends StatelessWidget {
             foregroundColor: Colors.white,
             elevation: 0,
           ),
-          cardTheme: CardTheme(
+          cardTheme: const CardThemeData(
             elevation: 2,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.all(Radius.circular(16)),
             ),
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
@@ -55,14 +55,15 @@ class MyApp extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
         home: const SplashScreen(),
-        routes: {
-          '/scan': (context) => const _ScanPlaceholderScreen(),
-        },
+        routes: {'/scan': (context) => const _ScanPlaceholderScreen()},
       ),
     );
   }
@@ -80,9 +81,16 @@ class _ScanPlaceholderScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.qr_code_scanner, size: 64, color: Color(0xFF4A5FE8)),
+            const Icon(
+              Icons.qr_code_scanner,
+              size: 64,
+              color: Color(0xFF4A5FE8),
+            ),
             const SizedBox(height: 16),
-            const Text('请扫描球场设备二维码', style: TextStyle(fontSize: 16, color: Color(0xFF666666))),
+            const Text(
+              '请扫描球场设备二维码',
+              style: TextStyle(fontSize: 16, color: Color(0xFF666666)),
+            ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
