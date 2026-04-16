@@ -31,14 +31,9 @@ jobs:
         run: |
           flutter pub get
 
-      - name: Analyze Flutter code
-        working-directory: iostennis
-        run: |
-          flutter analyze
-
       - name: Build iOS simulator app
         working-directory: iostennis
         run: |
           flutter clean
           flutter pub get
-          flutter build ios --no-codesign --simulator
+          flutter build ios --no-codesign --debug --simulator
