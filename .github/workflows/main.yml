@@ -42,7 +42,7 @@ jobs:
           flutter build ios --no-codesign --debug --simulator
 
       - name: Upload iOS build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ios-build
           path: iostennis/build/ios/iphonesimulator/Runner.app
