@@ -1,7 +1,8 @@
-//  Generated file. Do not edit.
-//  iostennis
 //
-//  Created by Flutter on 2026-04-16.
+//  Generated file. Do not edit.
+//
+
+// clang-format off
 
 #ifndef GeneratedPluginRegistrant_h
 #define GeneratedPluginRegistrant_h
@@ -15,3 +16,4 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 NS_ASSUME_NONNULL_END
+#endif /* GeneratedPluginRegistrant_h */
