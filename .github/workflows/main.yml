@@ -33,22 +33,24 @@ jobs:
           cd ios
           pod install
 
-      - name: Build with xcodebuild (skip codesign)
+      - name: Archive with xcodebuild (skip codesign)
         working-directory: iostennis/ios
         run: |
-          xcodebuild \
+          xcodebuild archive \
             -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
             -sdk iphoneos \
             -arch arm64 \
-            -derivedDataPath ../build/derivedData \
+            -archivePath ../build/Runner.xcarchive \
             COMPILER_INDEX_STORE_ENABLE=NO \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=NO \
-            build 2>&1 | tee ../build_log.txt
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            2>&1 | tee ../build_log.txt
 
       - name: Show build errors
         if: failure()
@@ -59,26 +61,40 @@ jobs:
           echo "=== LAST 50 LINES ==="
           tail -50 build_log.txt
 
-      - name: Package IPA
+      - name: Package IPA from archive
         if: success()
         working-directory: iostennis
         run: |
-          APP_PATH=$(find build/derivedData -name "Runner.app" -path "*Release-iphoneos*" | head -1)
+          # 从 xcarchive 中提取 Runner.app
+          APP_PATH="build/Runner.xcarchive/Products/Applications/Runner.app"
 
-          if [ -z "$APP_PATH" ]; then
-            echo "ERROR: Runner.app not found!"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: Runner.app not found in archive!"
             find build -name "Runner.app" || true
             exit 1
           fi
 
           echo "Found: $APP_PATH"
 
-          mkdir -p /tmp/ipa/Payload
-          cp -r "$APP_PATH" /tmp/ipa/Payload/
-          cd /tmp/ipa
-          zip -r -q "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" Payload/
+          # 验证
+          echo "=== Runner.app contents ==="
+          ls -la "$APP_PATH/" | head -20
+          echo ""
+          file "$APP_PATH/Runner" || echo "Runner binary check failed"
+
+          # 打包 IPA
+          mkdir -p /tmp/ipa_staging/Payload
+          cp -r "$APP_PATH" /tmp/ipa_staging/Payload/
+
+          cd /tmp/ipa_staging
+          zip -r -q -x "*.DS_Store" "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" Payload/
 
           echo "IPA size: $(du -h $GITHUB_WORKSPACE/iostennis/ACETrack.ipa | cut -f1)"
+
+          # 验证
+          echo ""
+          echo "=== IPA contents (first 30) ==="
+          unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | head -30
 
       - name: Upload IPA artifact
         if: success()
