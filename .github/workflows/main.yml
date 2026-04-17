@@ -26,22 +26,16 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Install dependencies
-        working-directory: iostennis
-        run: flutter pub get
-
-      - name: Build iOS with xcodebuild (skip codesign)
+      - name: Prepare project
         working-directory: iostennis
         run: |
-          # Step 1: 生成 Dart 编译产物
-          flutter build ios --config-only --release
-          
-          # Step 2: pod install
+          flutter pub get
           cd ios
           pod install
-          cd ..
-          
-          # Step 3: 用 xcodebuild 构建，完全跳过签名
+
+      - name: Build with xcodebuild (skip codesign)
+        working-directory: iostennis
+        run: |
           xcodebuild \
             -workspace ios/Runner.xcworkspace \
             -scheme Runner \
@@ -59,23 +53,21 @@ jobs:
       - name: Package IPA
         working-directory: iostennis
         run: |
-          # 查找 Runner.app
           APP_PATH=$(find build/derivedData -name "Runner.app" -path "*Release-iphoneos*" | head -1)
-          
+
           if [ -z "$APP_PATH" ]; then
             echo "ERROR: Runner.app not found!"
             find build -name "Runner.app" || true
             exit 1
           fi
-          
+
           echo "Found: $APP_PATH"
-          
-          # 打包为 IPA
-          mkdir -p /tmp/payload/Payload
-          cp -r "$APP_PATH" /tmp/payload/Payload/
-          cd /tmp/payload
+
+          mkdir -p /tmp/ipa/Payload
+          cp -r "$APP_PATH" /tmp/ipa/Payload/
+          cd /tmp/ipa
           zip -r -q "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" Payload/
-          
+
           echo "IPA size: $(du -h $GITHUB_WORKSPACE/iostennis/ACETrack.ipa | cut -f1)"
 
       - name: Upload IPA artifact
