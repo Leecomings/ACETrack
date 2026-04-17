@@ -26,16 +26,34 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Build iOS (no codesign)
+      - name: Prepare dependencies
         working-directory: iostennis
         run: |
           flutter pub get
-          flutter build ios --release --no-codesign
+          cd ios
+          pod install
+
+      - name: Build with xcodebuild (skip codesign)
+        working-directory: iostennis/ios
+        run: |
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -arch arm64 \
+            -derivedDataPath ../build/derivedData \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            build
 
       - name: Package IPA
         working-directory: iostennis
         run: |
-          APP_PATH=$(find build/ios -name "Runner.app" -path "*iphoneos*" | head -1)
+          APP_PATH=$(find build/derivedData -name "Runner.app" -path "*Release-iphoneos*" | head -1)
 
           if [ -z "$APP_PATH" ]; then
             echo "ERROR: Runner.app not found!"
