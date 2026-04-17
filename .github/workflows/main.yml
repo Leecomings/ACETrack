@@ -33,24 +33,24 @@ jobs:
           cd ios
           pod install
 
-      - name: Archive with xcodebuild (skip codesign)
+      - name: Build with xcodebuild (skip codesign)
         working-directory: iostennis/ios
         run: |
-          xcodebuild archive \
+          set -o pipefail
+          xcodebuild \
             -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
             -sdk iphoneos \
             -arch arm64 \
-            -archivePath ../build/Runner.xcarchive \
+            -derivedDataPath ../build/derivedData \
             COMPILER_INDEX_STORE_ENABLE=NO \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=NO \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            2>&1 | tee ../build_log.txt
+            ENABLE_BITCODE=NO \
+            build 2>&1 | tee ../build_log.txt
 
       - name: Show build errors
         if: failure()
@@ -61,28 +61,65 @@ jobs:
           echo "=== LAST 50 LINES ==="
           tail -50 build_log.txt
 
-      - name: Package IPA from archive
+      - name: Package IPA
         if: success()
         working-directory: iostennis
         run: |
-          # 从 xcarchive 中提取 Runner.app
-          APP_PATH="build/Runner.xcarchive/Products/Applications/Runner.app"
+          APP_PATH=$(find build/derivedData -name "Runner.app" -path "*Release-iphoneos*" | head -1)
 
-          if [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: Runner.app not found in archive!"
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: Runner.app not found!"
             find build -name "Runner.app" || true
             exit 1
           fi
 
           echo "Found: $APP_PATH"
 
-          # 验证
+          # 验证 Runner.app 结构
           echo "=== Runner.app contents ==="
-          ls -la "$APP_PATH/" | head -20
+          ls -la "$APP_PATH/"
           echo ""
-          file "$APP_PATH/Runner" || echo "Runner binary check failed"
+          echo "=== Check Runner binary ==="
+          file "$APP_PATH/Runner"
+
+          # 清除旧签名 (爱思助手会重新签名)
+          echo ""
+          echo "=== Removing old code signatures ==="
+          rm -rf "$APP_PATH/_CodeSignature"
+          # 清除 Frameworks 中的签名
+          if [ -d "$APP_PATH/Frameworks" ]; then
+            for framework in "$APP_PATH/Frameworks"/*.framework; do
+              if [ -d "$framework" ]; then
+                rm -rf "$framework/_CodeSignature"
+              fi
+            done
+            for dylib in "$APP_PATH/Frameworks"/*.dylib; do
+              if [ -f "$dylib" ]; then
+                codesign --remove-signature "$dylib" 2>/dev/null || true
+              fi
+            done
+          fi
+
+          # 嵌入 Swift 动态库
+          echo ""
+          echo "=== Embedding Swift libraries ==="
+          mkdir -p "$APP_PATH/Frameworks"
+          SWIFT_STDLIB_PATH=$(xcrun --show-sdk-path --sdk iphoneos)/usr/lib/swift
+          if [ -d "$SWIFT_STDLIB_PATH" ]; then
+            for lib in "$SWIFT_STDLIB_PATH"/*.dylib; do
+              base=$(basename "$lib")
+              if [ ! -f "$APP_PATH/Frameworks/$base" ]; then
+                cp "$lib" "$APP_PATH/Frameworks/" 2>/dev/null || true
+              fi
+            done
+          fi
+
+          echo "=== Frameworks in app ==="
+          ls -la "$APP_PATH/Frameworks/" | head -30
 
           # 打包 IPA
+          echo ""
+          echo "=== Packaging IPA ==="
           mkdir -p /tmp/ipa_staging/Payload
           cp -r "$APP_PATH" /tmp/ipa_staging/Payload/
 
@@ -93,8 +130,8 @@ jobs:
 
           # 验证
           echo ""
-          echo "=== IPA contents (first 30) ==="
-          unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | head -30
+          echo "=== IPA top-level structure ==="
+          unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | grep "Payload/" | head -20
 
       - name: Upload IPA artifact
         if: success()
