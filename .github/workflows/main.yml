@@ -26,12 +26,24 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Prepare project
+      - name: Verify Flutter SDK path
+        run: |
+          which flutter
+          flutter --version
+          echo "FLUTTER_ROOT=$(dirname $(dirname $(which flutter)))"
+
+      - name: Flutter pub get
+        working-directory: iostennis
+        run: flutter pub get
+
+      - name: Verify Generated.xcconfig
         working-directory: iostennis
         run: |
-          flutter pub get
-          cd ios
-          pod install
+          cat ios/Flutter/Generated.xcconfig || echo "Generated.xcconfig not found"
+
+      - name: Install CocoaPods
+        working-directory: iostennis/ios
+        run: pod install
 
       - name: Build with xcodebuild (skip codesign)
         working-directory: iostennis
