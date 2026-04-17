@@ -3,41 +3,51 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/api_service.dart';
 import 'services/auth_provider.dart';
+import 'services/scoring_provider.dart';
+import 'services/recording_provider.dart';
+import 'services/ai_service.dart';
 import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  runApp(MyApp(prefs: prefs));
+  runApp(ACETrackApp(prefs: prefs));
 }
 
-class MyApp extends StatelessWidget {
+class ACETrackApp extends StatelessWidget {
   final SharedPreferences prefs;
-  const MyApp({super.key, required this.prefs});
+  const ACETrackApp({super.key, required this.prefs});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         Provider<ApiService>(create: (_) => ApiService()),
+        Provider<AIService>(create: (_) => AIService()),
         ChangeNotifierProvider<AuthProvider>(
           create: (_) => AuthProvider(prefs),
         ),
+        ChangeNotifierProvider<ScoringProvider>(
+          create: (_) => ScoringProvider(),
+        ),
+        ChangeNotifierProvider<RecordingProvider>(
+          create: (_) => RecordingProvider(),
+        ),
       ],
       child: MaterialApp(
-        title: 'TennisEye',
+        title: 'ACETrack',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          primaryColor: const Color(0xFF4A5FE8),
+          primaryColor: const Color(0xFF1A73E8),
           scaffoldBackgroundColor: const Color(0xFFF5F5F5),
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF4A5FE8),
-            primary: const Color(0xFF4A5FE8),
+            seedColor: const Color(0xFF1A73E8),
+            primary: const Color(0xFF1A73E8),
             secondary: const Color(0xFFE94B3C),
           ),
           fontFamily: 'PingFang SC',
           appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF4A5FE8),
+            backgroundColor: Color(0xFF1A73E8),
             foregroundColor: Colors.white,
             elevation: 0,
           ),
@@ -49,7 +59,7 @@ class MyApp extends StatelessWidget {
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4A5FE8),
+              backgroundColor: const Color(0xFF1A73E8),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -63,7 +73,9 @@ class MyApp extends StatelessWidget {
           ),
         ),
         home: const SplashScreen(),
-        routes: {'/scan': (context) => const _ScanPlaceholderScreen()},
+        routes: {
+          '/scan': (context) => const _ScanPlaceholderScreen(),
+        },
       ),
     );
   }
@@ -84,7 +96,7 @@ class _ScanPlaceholderScreen extends StatelessWidget {
             const Icon(
               Icons.qr_code_scanner,
               size: 64,
-              color: Color(0xFF4A5FE8),
+              color: Color(0xFF1A73E8),
             ),
             const SizedBox(height: 16),
             const Text(

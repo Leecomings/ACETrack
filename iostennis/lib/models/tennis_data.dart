@@ -1,3 +1,5 @@
+/// 核心数据模型定义
+
 class TrainingData {
   final int totalShots;
   final double avgSpeed;
@@ -149,12 +151,16 @@ class VideoClip {
   final String timeRange;
   final String duration;
   final String title;
+  final String? type;
+  final bool? highlight;
 
   VideoClip({
     required this.id,
     required this.timeRange,
     required this.duration,
     required this.title,
+    this.type,
+    this.highlight,
   });
 }
 
@@ -170,4 +176,68 @@ class AISuggestion {
     required this.desc,
     required this.tag,
   });
+}
+
+/// 姿态分析数据
+class PoseAnalysis {
+  final double swingScore;
+  final double balanceScore;
+  final double hitPointScore;
+  final double followThroughScore;
+  final List<String> suggestions;
+  final Map<String, dynamic>? keypoints;
+
+  PoseAnalysis({
+    this.swingScore = 0,
+    this.balanceScore = 0,
+    this.hitPointScore = 0,
+    this.followThroughScore = 0,
+    this.suggestions = const [],
+    this.keypoints,
+  });
+
+  double get averageScore => (swingScore + balanceScore + hitPointScore + followThroughScore) / 4;
+}
+
+/// 录制事件
+class RecordingEvent {
+  final String type; // 'shot', 'landing', 'pose', 'recording_end'
+  final int timestamp;
+  final Map<String, dynamic> data;
+
+  RecordingEvent({
+    required this.type,
+    required this.timestamp,
+    required this.data,
+  });
+}
+
+/// 网球计分数据
+class TennisScore {
+  final int setsA;
+  final int setsB;
+  final int gamesA;
+  final int gamesB;
+  final int pointsA;
+  final int pointsB;
+  final bool isServerA;
+
+  TennisScore({
+    this.setsA = 0,
+    this.setsB = 0,
+    this.gamesA = 0,
+    this.gamesB = 0,
+    this.pointsA = 0,
+    this.pointsB = 0,
+    this.isServerA = true,
+  });
+
+  String get pointLabel {
+    const labels = ['0', '15', '30', '40'];
+    if (pointsA >= 3 && pointsB >= 3) {
+      if (pointsA == pointsB) return 'Deuce';
+      return pointsA > pointsB ? 'Ad-A' : 'Ad-B';
+    }
+    return '${labels[pointsA.clamp(0, 3)]}-${labels[pointsB.clamp(0, 3)]}';
+  }
 }

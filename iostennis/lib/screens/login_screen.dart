@@ -14,7 +14,6 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _codeController = TextEditingController();
   bool _isRegister = false;
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -24,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _phoneController.dispose();
     _passwordController.dispose();
-    _codeController.dispose();
     super.dispose();
   }
 
@@ -89,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF4A5FE8), Color(0xFF7B68EE)],
+            colors: [Color(0xFF1A73E8), Color(0xFF4FC3F7)],
           ),
         ),
         child: SafeArea(
@@ -110,9 +108,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: const Center(child: Text('🎾', style: TextStyle(fontSize: 38))),
                   ),
                   const SizedBox(height: 16),
-                  const Text('TennisEye', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 2)),
+                  const Text('ACETrack', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 3)),
                   const SizedBox(height: 6),
-                  Text('智能网球鹰眼系统', style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.75))),
+                  Text('智能网球分析系统', style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.75))),
                   const SizedBox(height: 40),
 
                   // Form Card
@@ -121,14 +119,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(18),
-                      boxShadow: [BoxShadow(color: const Color(0xFF4A5FE8).withOpacity(0.15), blurRadius: 35, offset: const Offset(0, 10))],
+                      boxShadow: [BoxShadow(color: const Color(0xFF1A73E8).withOpacity(0.15), blurRadius: 35, offset: const Offset(0, 10))],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(_isRegister ? '创建账号' : '欢迎回来', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                         const SizedBox(height: 4),
-                        Text(_isRegister ? '注册以开始使用鹰眼系统' : '登录以继续使用', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                        Text(_isRegister ? '注册以开始使用 ACETrack' : '登录以继续使用', style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                         const SizedBox(height: 24),
 
                         // Phone
@@ -194,7 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
 
                   const SizedBox(height: 20),
-                  Text('© 2026 TennisEye 网球鹰眼系统', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5))),
+                  Text('© 2026 ACETrack 智能网球分析系统', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5))),
                 ],
               ),
             ),

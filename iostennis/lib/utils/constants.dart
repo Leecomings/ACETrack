@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color primary = Color(0xFF4A5FE8);
-  static const Color primaryLight = Color(0xFF6B7BF0);
-  static const Color primaryDark = Color(0xFF3A4BC8);
-  static const Color primaryBg = Color(0x144A5FE8);
+  static const Color primary = Color(0xFF1A73E8);
+  static const Color primaryLight = Color(0xFF4FC3F7);
+  static const Color primaryDark = Color(0xFF0D47A1);
+  static const Color primaryBg = Color(0x141A73E8);
 
   static const Color accent = Color(0xFFE94B3C);
   static const Color accentLight = Color(0xFFF06B5E);
@@ -12,7 +12,7 @@ class AppColors {
   static const Color success = Color(0xFF52C41A);
   static const Color warning = Color(0xFFFAAD14);
   static const Color error = Color(0xFFF5222D);
-  static const Color info = Color(0xFF4A5FE8);
+  static const Color info = Color(0xFF1A73E8);
 
   static const Color textPrimary = Color(0xFF333333);
   static const Color textSecondary = Color(0xFF666666);
@@ -29,11 +29,17 @@ class AppColors {
   static const Color courtNet = Color(0xFFCCCCCC);
 
   // 击球类型颜色
-  static const Color forehand = Color(0xFF4A5FE8);
+  static const Color forehand = Color(0xFF1A73E8);
   static const Color backhand = Color(0xFF60A5FA);
   static const Color serve = Color(0xFF52C41A);
   static const Color volley = Color(0xFFFAAD14);
   static const Color smash = Color(0xFFF5222D);
+
+  // 姿态分析颜色
+  static const Color poseExcellent = Color(0xFF52C41A);
+  static const Color poseGood = Color(0xFF1A73E8);
+  static const Color poseAverage = Color(0xFFFAAD14);
+  static const Color posePoor = Color(0xFFF5222D);
 }
 
 class AppSpacing {

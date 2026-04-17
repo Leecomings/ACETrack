@@ -17,7 +17,7 @@ class ProfileScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF4A5FE8), Color(0xFF7B68EE)],
+            colors: [Color(0xFF1A73E8), Color(0xFF4FC3F7)],
           ),
         ),
         child: SafeArea(
@@ -36,19 +36,12 @@ class ProfileScreen extends StatelessWidget {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      // 用户信息卡
                       _buildUserCard(auth),
                       const SizedBox(height: 16),
-
-                      // 训练总览
                       _buildOverviewCard(),
                       const SizedBox(height: 16),
-
-                      // 训练记录
                       _buildTrainingRecords(),
                       const SizedBox(height: 16),
-
-                      // 菜单
                       _buildMenuItems(context, auth),
                     ],
                   ),
@@ -65,7 +58,7 @@ class ProfileScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [AppColors.primary, Color(0xFF7B68EE)]),
+        gradient: const LinearGradient(colors: [AppColors.primary, Color(0xFF4FC3F7)]),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -174,7 +167,6 @@ class ProfileScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // 日期
           Container(
             width: 48,
             height: 48,
@@ -222,10 +214,15 @@ class ProfileScreen extends StatelessWidget {
       child: Column(
         children: [
           _menuItem(Icons.qr_code_scanner, '扫码绑定球场', () => Navigator.pushNamed(context, '/scan')),
+          _menuItem(Icons.bluetooth, '设备管理', () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('设备管理功能开发中'), behavior: SnackBarBehavior.floating),
+            );
+          }),
           _menuItem(Icons.people, '球友', () {}),
           _menuItem(Icons.settings, '设置', () {}),
           _menuItem(Icons.help_outline, '帮助与反馈', () {}),
-          _menuItem(Icons.info_outline, '关于', () {}),
+          _menuItem(Icons.info_outline, '关于 ACETrack', () {}),
           const Divider(height: 1),
           _menuItem(Icons.logout, '退出登录', () {
             auth.logout();

@@ -1,5 +1,5 @@
-name: iostennis
-description: TennisEye 网球鹰眼系统 iOS端
+name: acetrack
+description: ACETrack 智能网球分析系统 - 落点监测、球速追踪、姿态分析、全局计分、视频复盘
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -26,6 +26,9 @@ dependencies:
   shimmer: ^3.0.0
   image_picker: ^1.0.7
   flutter_svg: ^2.0.9
+  wakelock_plus: ^1.1.4
+  vibration: ^1.8.4
+  dio: ^5.4.0
 
 dev_dependencies:
   flutter_test:

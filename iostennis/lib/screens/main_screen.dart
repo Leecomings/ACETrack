@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
-import 'analysis_screen.dart';
+import 'recording_screen.dart';
+import 'scoring_screen.dart';
 import 'video_screen.dart';
 import 'profile_screen.dart';
 import '../utils/constants.dart';
@@ -17,7 +18,8 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _screens = [
     const HomeScreen(),
-    const AnalysisScreen(),
+    const RecordingScreen(),
+    const ScoringScreen(),
     const VideoScreen(),
     const ProfileScreen(),
   ];
@@ -35,14 +37,15 @@ class _MainScreenState extends State<MainScreen> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildTabItem(0, '首页', Icons.home_outlined, Icons.home),
-                _buildTabItem(1, '分析', Icons.analytics_outlined, Icons.analytics),
-                _buildTabItem(2, '回放', Icons.play_circle_outline, Icons.play_circle),
-                _buildTabItem(3, '我的', Icons.person_outline, Icons.person),
+                _buildTabItem(1, '录制', Icons.videocam_outlined, Icons.videocam),
+                _buildTabItem(2, '计分', Icons.sports_tennis_outlined, Icons.sports_tennis),
+                _buildTabItem(3, '回放', Icons.play_circle_outline, Icons.play_circle),
+                _buildTabItem(4, '我的', Icons.person_outline, Icons.person),
               ],
             ),
           ),
@@ -57,7 +60,7 @@ class _MainScreenState extends State<MainScreen> {
       onTap: () => setState(() => _currentIndex = index),
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -70,7 +73,7 @@ class _MainScreenState extends State<MainScreen> {
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10,
                 color: isActive ? AppColors.primary : AppColors.textPlaceholder,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),

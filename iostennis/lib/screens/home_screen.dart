@@ -4,7 +4,7 @@ import '../utils/mock_data.dart';
 import '../widgets/court_map.dart';
 import '../widgets/score_board.dart';
 import '../widgets/speed_table.dart';
-import 'recording_screen.dart';
+import '../widgets/pose_overlay.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -17,7 +17,7 @@ class HomeScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF4A5FE8), Color(0xFF7B68EE)],
+            colors: [Color(0xFF1A73E8), Color(0xFF4FC3F7)],
           ),
         ),
         child: SafeArea(
@@ -29,7 +29,7 @@ class HomeScreen extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('TennisEye', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white)),
+                    const Text('ACETrack', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white)),
                     Row(
                       children: [
                         IconButton(
@@ -38,11 +38,13 @@ class HomeScreen extends StatelessWidget {
                           tooltip: '扫码绑定球场',
                         ),
                         IconButton(
-                          icon: const Icon(Icons.videocam, color: Colors.white),
+                          icon: const Icon(Icons.bluetooth, color: Colors.white),
                           onPressed: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => const RecordingScreen()));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('设备连接功能开发中'), behavior: SnackBarBehavior.floating),
+                            );
                           },
-                          tooltip: '录制',
+                          tooltip: '连接设备',
                         ),
                       ],
                     ),
@@ -61,19 +63,25 @@ class HomeScreen extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     children: [
                       // 实时落点分布
-                      const Text('  网球实时落点分布', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                      const Text('  网球落点监测', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                       const SizedBox(height: 10),
                       const CourtMapWidget(),
                       const SizedBox(height: 20),
 
-                      // 双人球速记录
-                      const Text('  球速记录', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                      // 球速记录
+                      const Text('  球速追踪', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                       const SizedBox(height: 10),
                       SpeedTableWidget(data: MockData.speedData),
                       const SizedBox(height: 20),
 
+                      // 用户姿态监测
+                      const Text('  姿态分析', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                      const SizedBox(height: 10),
+                      const PoseOverlayWidget(),
+                      const SizedBox(height: 20),
+
                       // 比分板
-                      const Text('  比分', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                      const Text('  实时比分', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                       const SizedBox(height: 10),
                       ScoreBoardWidget(
                         scoreA: MockData.scoreData['scoreA'] as int,

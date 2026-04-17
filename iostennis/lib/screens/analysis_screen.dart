@@ -27,13 +27,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF4A5FE8), Color(0xFF7B68EE)],
+            colors: [Color(0xFF1A73E8), Color(0xFF4FC3F7)],
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
-              // Header
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 child: Text('数据分析', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.white)),
@@ -47,27 +46,18 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      // 周期选择
                       _buildPeriodSelector(),
                       const SizedBox(height: 16),
-
-                      // 核心指标
                       _buildCoreMetrics(),
                       const SizedBox(height: 16),
-
-                      // 击球类型分布
                       _buildShotTypeDistribution(),
                       const SizedBox(height: 16),
-
-                      // 落点分布
                       _buildLandingZones(),
                       const SizedBox(height: 16),
-
-                      // 训练趋势
+                      _buildPoseAnalysis(),
+                      const SizedBox(height: 16),
                       _buildTrendChart(),
                       const SizedBox(height: 16),
-
-                      // 技能评分
                       _buildSkillScores(),
                       const SizedBox(height: 20),
                     ],
@@ -228,6 +218,95 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
+  Widget _buildPoseAnalysis() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('姿态分析', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: AppColors.primaryBg, borderRadius: BorderRadius.circular(8)),
+                child: const Row(
+                  children: [
+                    Icon(Icons.auto_awesome, size: 12, color: AppColors.primary),
+                    SizedBox(width: 4),
+                    Text('AI驱动', style: TextStyle(fontSize: 11, color: AppColors.primary)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _poseMetricRow('挥拍轨迹', 8.2, '优秀', AppColors.success),
+          const SizedBox(height: 8),
+          _poseMetricRow('身体平衡', 7.5, '良好', AppColors.info),
+          const SizedBox(height: 8),
+          _poseMetricRow('击球点高度', 6.8, '良好', AppColors.info),
+          const SizedBox(height: 8),
+          _poseMetricRow('随挥完整性', 5.5, '一般', AppColors.warning),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primaryBg,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: AppColors.primary),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '姿态分析由AI大模型驱动，将在接入模型后提供实时分析。当前为示例数据。',
+                    style: TextStyle(fontSize: 12, color: AppColors.primary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _poseMetricRow(String name, double score, String level, Color color) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(name, style: const TextStyle(fontSize: 13)),
+        ),
+        SizedBox(
+          width: 80,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: score / 10,
+              backgroundColor: const Color(0xFFF0F0F0),
+              valueColor: AlwaysStoppedAnimation(color),
+              minHeight: 6,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 36,
+          child: Text('${score}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color)),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+          child: Text(level, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500)),
+        ),
+      ],
+    );
+  }
+
   Widget _zoneLabel(String text, Color color) {
     return Row(children: [
       Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
@@ -329,7 +408,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [AppColors.primary, Color(0xFF7B68EE)]),
+              gradient: const LinearGradient(colors: [AppColors.primary, Color(0xFF4FC3F7)]),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
