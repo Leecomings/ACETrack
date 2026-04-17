@@ -48,9 +48,19 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=NO \
-            build
+            build 2>&1 | tee ../build_log.txt
+
+      - name: Show build errors
+        if: failure()
+        working-directory: iostennis
+        run: |
+          echo "=== BUILD ERRORS ==="
+          grep -E "error:|Error:|FAIL|ld:|clang:" build_log.txt || echo "No specific errors found"
+          echo "=== LAST 50 LINES ==="
+          tail -50 build_log.txt
 
       - name: Package IPA
+        if: success()
         working-directory: iostennis
         run: |
           APP_PATH=$(find build/derivedData -name "Runner.app" -path "*Release-iphoneos*" | head -1)
@@ -71,7 +81,15 @@ jobs:
           echo "IPA size: $(du -h $GITHUB_WORKSPACE/iostennis/ACETrack.ipa | cut -f1)"
 
       - name: Upload IPA artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: ACETrack-ipa
           path: iostennis/ACETrack.ipa
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: iostennis/build_log.txt
