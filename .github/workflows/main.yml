@@ -26,40 +26,47 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Prepare dependencies
+      - name: Build iOS framework (skip codesign)
         working-directory: iostennis
         run: |
           flutter pub get
+          # 用 flutter build ios-framework 生成 Flutter 编译产物
+          # 这不会检查签名
+          flutter build ios-framework --no-codesign --release
+
+      - name: Build Runner with xcodebuild
+        working-directory: iostennis
+        run: |
+          # 先执行 pod install
           cd ios
           pod install
+          cd ..
 
-      - name: Build with xcodebuild (skip codesign)
-        working-directory: iostennis/ios
-        run: |
+          # 用 xcodebuild 构建
           set -o pipefail
           xcodebuild \
-            -workspace Runner.xcworkspace \
+            -workspace ios/Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
             -sdk iphoneos \
             -arch arm64 \
-            -derivedDataPath ../build/derivedData \
+            -derivedDataPath build/derivedData \
             COMPILER_INDEX_STORE_ENABLE=NO \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             ONLY_ACTIVE_ARCH=NO \
             ENABLE_BITCODE=NO \
-            build 2>&1 | tee ../build_log.txt
+            build 2>&1 | tee build_log.txt
 
       - name: Show build errors
         if: failure()
         working-directory: iostennis
         run: |
           echo "=== BUILD ERRORS ==="
-          grep -E "error:|Error:|FAIL|ld:|clang:" build_log.txt || echo "No specific errors found"
-          echo "=== LAST 50 LINES ==="
-          tail -50 build_log.txt
+          grep -E "error:|Error:|FAIL|ld:|clang:|PhaseScriptExecution" build_log.txt || echo "No specific errors found"
+          echo "=== LAST 80 LINES ==="
+          tail -80 build_log.txt
 
       - name: Package IPA
         if: success()
@@ -75,18 +82,8 @@ jobs:
 
           echo "Found: $APP_PATH"
 
-          # 验证 Runner.app 结构
-          echo "=== Runner.app contents ==="
-          ls -la "$APP_PATH/"
-          echo ""
-          echo "=== Check Runner binary ==="
-          file "$APP_PATH/Runner"
-
-          # 清除旧签名 (爱思助手会重新签名)
-          echo ""
-          echo "=== Removing old code signatures ==="
+          # 清除签名
           rm -rf "$APP_PATH/_CodeSignature"
-          # 清除 Frameworks 中的签名
           if [ -d "$APP_PATH/Frameworks" ]; then
             for framework in "$APP_PATH/Frameworks"/*.framework; do
               if [ -d "$framework" ]; then
@@ -100,26 +97,7 @@ jobs:
             done
           fi
 
-          # 嵌入 Swift 动态库
-          echo ""
-          echo "=== Embedding Swift libraries ==="
-          mkdir -p "$APP_PATH/Frameworks"
-          SWIFT_STDLIB_PATH=$(xcrun --show-sdk-path --sdk iphoneos)/usr/lib/swift
-          if [ -d "$SWIFT_STDLIB_PATH" ]; then
-            for lib in "$SWIFT_STDLIB_PATH"/*.dylib; do
-              base=$(basename "$lib")
-              if [ ! -f "$APP_PATH/Frameworks/$base" ]; then
-                cp "$lib" "$APP_PATH/Frameworks/" 2>/dev/null || true
-              fi
-            done
-          fi
-
-          echo "=== Frameworks in app ==="
-          ls -la "$APP_PATH/Frameworks/" | head -30
-
           # 打包 IPA
-          echo ""
-          echo "=== Packaging IPA ==="
           mkdir -p /tmp/ipa_staging/Payload
           cp -r "$APP_PATH" /tmp/ipa_staging/Payload/
 
@@ -127,11 +105,6 @@ jobs:
           zip -r -q -x "*.DS_Store" "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" Payload/
 
           echo "IPA size: $(du -h $GITHUB_WORKSPACE/iostennis/ACETrack.ipa | cut -f1)"
-
-          # 验证
-          echo ""
-          echo "=== IPA top-level structure ==="
-          unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | grep "Payload/" | head -20
 
       - name: Upload IPA artifact
         if: success()
