@@ -26,43 +26,39 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Build iOS with xcodebuild archive
+      - name: Build iOS
         working-directory: iostennis
         run: |
           flutter pub get
           flutter build ios --release --no-codesign
 
-          # 使用 xcodebuild archive 方式构建，生成完整的 xcarchive
-          xcodebuild archive \
-            -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -archivePath build/Runner.xcarchive \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            | tail -20
-
-      - name: Create IPA from xcarchive
+      - name: Package IPA (unsigned, for third-party resigning)
         working-directory: iostennis
         run: |
-          # 从 xcarchive 中提取 .app
-          APP_PATH="build/Runner.xcarchive/Products/Applications/Runner.app"
+          APP_PATH=$(find build/ios -name "Runner.app" -path "*iphoneos*" | head -1)
 
-          if [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: Runner.app not found in xcarchive!"
-            find build/Runner.xcarchive -name "Runner.app" || true
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: Runner.app not found!"
+            find build -name "Runner.app" || true
             exit 1
           fi
 
           echo "Found: $APP_PATH"
 
-          # 删除已有的签名信息，让爱思助手完全重签名
-          echo "=== Removing existing code signatures ==="
-          rm -rf "$APP_PATH/_CodeSignature"
+          # === 关键：彻底删除所有签名信息 ===
+          # 爱思助手重签名后会修改 Runner 二进制，
+          # 如果 CodeResources 中的 hash 与修改后的二进制不匹配，
+          # iOS 会拒绝加载 app 导致黑屏。
+          # 解决方案：不预签名，让爱思助手从零签名并生成正确的 CodeResources。
 
-          # 对所有 Frameworks 执行 ad-hoc 签名
+          echo "=== Removing ALL code signatures ==="
+          # 删除主 app 的签名
+          rm -rf "$APP_PATH/_CodeSignature"
+          # 删除 embedded.mobileprovision（如果有的话）
+          rm -f "$APP_PATH/embedded.mobileprovision"
+
+          # 对 Frameworks 做 ad-hoc 签名（爱思助手不会重新签名 Frameworks）
+          # 但也要删除 CodeResources，因为 ad-hoc 签名和爱思助手的签名团队不同
           if [ -d "$APP_PATH/Frameworks" ]; then
             echo "=== Ad-hoc signing Frameworks ==="
             for framework in "$APP_PATH/Frameworks"/*.framework; do
@@ -70,7 +66,6 @@ jobs:
                 FRAMEWORK_NAME=$(basename "$framework" .framework)
                 FRAMEWORK_EXECUTABLE="$framework/$FRAMEWORK_NAME"
                 if [ -f "$FRAMEWORK_EXECUTABLE" ]; then
-                  # 删除旧签名
                   rm -rf "$framework/_CodeSignature"
                   echo "Signing: $FRAMEWORK_NAME"
                   codesign --force --sign - --timestamp=none "$FRAMEWORK_EXECUTABLE"
@@ -85,19 +80,16 @@ jobs:
             done
           fi
 
-          # 对主可执行文件也做 ad-hoc 签名
-          echo "Signing main executable"
-          codesign --force --sign - --timestamp=none "$APP_PATH"
+          # 注意：不对 Runner 主可执行文件签名！
+          # 不对整个 Runner.app 签名！
+          # 让爱思助手完成主 app 的签名和 CodeResources 生成
 
-          # 验证签名
-          echo "=== Verifying signatures ==="
-          codesign --verify --deep --verbose=2 "$APP_PATH" 2>&1 || true
-
-          # 生成 Info.plist (确保嵌入 Bundle ID)
+          # 确保 Info.plist 中 Bundle ID 是纯的（不含 team ID 后缀）
           echo "=== Checking Info.plist ==="
           /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Info.plist" 2>&1 || true
+          /usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP_PATH/Info.plist" 2>&1 || true
 
-          # 打包 IPA（确保符号链接被解析）
+          # 打包 IPA
           mkdir -p /tmp/ipa_staging/Payload
           cp -Rf "$APP_PATH" /tmp/ipa_staging/Payload/Runner.app
 
@@ -106,11 +98,10 @@ jobs:
 
           echo "IPA size: $(du -h $GITHUB_WORKSPACE/iostennis/ACETrack.ipa | cut -f1)"
 
-          # 列出 Frameworks 内容
+          # 列出内容
           echo "=== Frameworks in IPA ==="
           unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | grep "Frameworks/" | head -20
 
-          # 验证 _CodeSignature 目录在 IPA 中
           echo "=== Code signatures in IPA ==="
           unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | grep "_CodeSignature" | head -20
 
