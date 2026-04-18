@@ -26,13 +26,13 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Build iOS
+      - name: Build iOS (unsigned)
         working-directory: iostennis
         run: |
           flutter pub get
           flutter build ios --release --no-codesign
 
-      - name: Package IPA (unsigned, for third-party resigning)
+      - name: Package IPA (completely unsigned)
         working-directory: iostennis
         run: |
           APP_PATH=$(find build/ios -name "Runner.app" -path "*iphoneos*" | head -1)
@@ -45,65 +45,71 @@ jobs:
 
           echo "Found: $APP_PATH"
 
-          # === 关键：彻底删除所有签名信息 ===
-          # 爱思助手重签名后会修改 Runner 二进制，
-          # 如果 CodeResources 中的 hash 与修改后的二进制不匹配，
-          # iOS 会拒绝加载 app 导致黑屏。
-          # 解决方案：不预签名，让爱思助手从零签名并生成正确的 CodeResources。
+          # ============================================
+          # 关键修复：彻底移除所有签名信息
+          # ============================================
+          # 黑屏根因：iOS 签名验证失败
+          # - 之前对 Frameworks 做 ad-hoc 签名留下了签名信息
+          # - 爱思助手只重签 Runner，不重签 Frameworks
+          # - ad-hoc 签名和个人开发者签名的 Team ID 不同
+          # - iOS 检测到签名不一致，拒绝加载 app
+          #
+          # 解决方案：完全不做任何预签名，让爱思助手对
+          # Runner 和所有 Frameworks 统一签名，确保签名一致
+          # ============================================
 
-          echo "=== Removing ALL code signatures ==="
-          # 删除主 app 的签名
+          echo "=== Step 1: Remove ALL code signatures from Runner.app ==="
           rm -rf "$APP_PATH/_CodeSignature"
-          # 删除 embedded.mobileprovision（如果有的话）
           rm -f "$APP_PATH/embedded.mobileprovision"
 
-          # 对 Frameworks 做 ad-hoc 签名（爱思助手不会重新签名 Frameworks）
-          # 但也要删除 CodeResources，因为 ad-hoc 签名和爱思助手的签名团队不同
+          echo "=== Step 2: Remove ALL code signatures from Frameworks ==="
           if [ -d "$APP_PATH/Frameworks" ]; then
-            echo "=== Ad-hoc signing Frameworks ==="
             for framework in "$APP_PATH/Frameworks"/*.framework; do
               if [ -d "$framework" ]; then
                 FRAMEWORK_NAME=$(basename "$framework" .framework)
-                FRAMEWORK_EXECUTABLE="$framework/$FRAMEWORK_NAME"
-                if [ -f "$FRAMEWORK_EXECUTABLE" ]; then
-                  rm -rf "$framework/_CodeSignature"
-                  echo "Signing: $FRAMEWORK_NAME"
-                  codesign --force --sign - --timestamp=none "$FRAMEWORK_EXECUTABLE"
-                fi
+                echo "  Cleaning: $FRAMEWORK_NAME"
+                rm -rf "$framework/_CodeSignature"
+                # 不做任何 codesign 操作！
               fi
             done
             for dylib in "$APP_PATH/Frameworks"/*.dylib; do
               if [ -f "$dylib" ]; then
-                echo "Signing: $(basename "$dylib")"
-                codesign --force --sign - --timestamp=none "$dylib"
+                echo "  Cleaning: $(basename "$dylib")"
+                # dylib 没有独立的 _CodeSignature 目录
+                # 但需要移除嵌入的签名（codesign --remove-signature）
+                codesign --remove-signature "$dylib" 2>/dev/null || true
               fi
             done
           fi
 
-          # 注意：不对 Runner 主可执行文件签名！
-          # 不对整个 Runner.app 签名！
-          # 让爱思助手完成主 app 的签名和 CodeResources 生成
+          echo "=== Step 3: Remove signature from Runner binary itself ==="
+          codesign --remove-signature "$APP_PATH/Runner" 2>/dev/null || true
 
-          # 确保 Info.plist 中 Bundle ID 是纯的（不含 team ID 后缀）
-          echo "=== Checking Info.plist ==="
-          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Info.plist" 2>&1 || true
-          /usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP_PATH/Info.plist" 2>&1 || true
+          echo "=== Step 4: Verify no signatures remain ==="
+          echo "--- Checking _CodeSignature directories ---"
+          find "$APP_PATH" -name "_CodeSignature" -type d || echo "  (none found - GOOD)"
+          echo "--- Checking code signatures ---"
+          codesign -dv "$APP_PATH" 2>&1 || echo "  Runner.app: unsigned (GOOD)"
+          if [ -d "$APP_PATH/Frameworks" ]; then
+            for framework in "$APP_PATH/Frameworks"/*.framework; do
+              if [ -d "$framework" ]; then
+                FRAMEWORK_NAME=$(basename "$framework" .framework)
+                codesign -dv "$framework/$FRAMEWORK_NAME" 2>&1 || echo "  $FRAMEWORK_NAME: unsigned (GOOD)"
+              fi
+            done
+          fi
 
-          # 打包 IPA
+          echo "=== Step 5: Package IPA ==="
           mkdir -p /tmp/ipa_staging/Payload
           cp -Rf "$APP_PATH" /tmp/ipa_staging/Payload/Runner.app
 
           cd /tmp/ipa_staging
           zip --symlinks -r -q "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" Payload/ -x "*.DS_Store"
 
-          echo "IPA size: $(du -h $GITHUB_WORKSPACE/iostennis/ACETrack.ipa | cut -f1)"
+          echo "IPA created: $(du -h $GITHUB_WORKSPACE/iostennis/ACETrack.ipa | cut -f1)"
 
-          # 列出内容
-          echo "=== Frameworks in IPA ==="
-          unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | grep "Frameworks/" | head -20
-
-          echo "=== Code signatures in IPA ==="
-          unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | grep "_CodeSignature" | head -20
+          echo "=== IPA contents summary ==="
+          unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | grep -E "Frameworks/|_CodeSignature|\.dylib" | head -30
 
       - name: Upload IPA artifact
         if: success()
