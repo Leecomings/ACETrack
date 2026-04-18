@@ -26,53 +26,40 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Build iOS framework (skip codesign)
+      - name: Create temporary signing keychain
+        run: |
+          # 创建临时自签名证书，让 flutter build ios 能通过签名检查
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="acetrack123"
+
+          # 创建 keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # 创建自签名证书
+          CERTIFICATE_PATH="$RUNNER_TEMP/certificate.p12"
+          openssl req -x509 -newkey rsa:2048 -keyout "$RUNNER_TEMP/key.pem" -out "$RUNNER_TEMP/cert.pem" \
+            -days 365 -nodes -subj "/CN=ACETrack Development/O=ACETrack"
+          openssl pkcs12 -export -out "$CERTIFICATE_PATH" \
+            -inkey "$RUNNER_TEMP/key.pem" -in "$RUNNER_TEMP/cert.pem" -password pass:
+          security import "$CERTIFICATE_PATH" -P "" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          # 获取 Team ID (自签名没有，用空字符串)
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+
+      - name: Build iOS with flutter
         working-directory: iostennis
         run: |
           flutter pub get
-          # 用 flutter build ios-framework 生成 Flutter 编译产物
-          # 这不会检查签名
-          flutter build ios-framework --no-codesign --release
-
-      - name: Build Runner with xcodebuild
-        working-directory: iostennis
-        run: |
-          # 先执行 pod install
-          cd ios
-          pod install
-          cd ..
-
-          # 用 xcodebuild 构建
-          set -o pipefail
-          xcodebuild \
-            -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -sdk iphoneos \
-            -arch arm64 \
-            -derivedDataPath build/derivedData \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            ONLY_ACTIVE_ARCH=NO \
-            ENABLE_BITCODE=NO \
-            build 2>&1 | tee build_log.txt
-
-      - name: Show build errors
-        if: failure()
-        working-directory: iostennis
-        run: |
-          echo "=== BUILD ERRORS ==="
-          grep -E "error:|Error:|FAIL|ld:|clang:|PhaseScriptExecution" build_log.txt || echo "No specific errors found"
-          echo "=== LAST 80 LINES ==="
-          tail -80 build_log.txt
+          flutter build ios --release --no-codesign
 
       - name: Package IPA
-        if: success()
         working-directory: iostennis
         run: |
-          APP_PATH=$(find build/derivedData -name "Runner.app" -path "*Release-iphoneos*" | head -1)
+          APP_PATH=$(find build/ios -name "Runner.app" -path "*iphoneos*" | head -1)
 
           if [ -z "$APP_PATH" ]; then
             echo "ERROR: Runner.app not found!"
@@ -82,7 +69,7 @@ jobs:
 
           echo "Found: $APP_PATH"
 
-          # 清除签名
+          # 清除签名 (爱思助手会重新签名)
           rm -rf "$APP_PATH/_CodeSignature"
           if [ -d "$APP_PATH/Frameworks" ]; then
             for framework in "$APP_PATH/Frameworks"/*.framework; do
@@ -113,9 +100,7 @@ jobs:
           name: ACETrack-ipa
           path: iostennis/ACETrack.ipa
 
-      - name: Upload build log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: iostennis/build_log.txt
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
