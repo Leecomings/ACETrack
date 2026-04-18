@@ -187,6 +187,11 @@ class PoseAnalysis {
   final List<String> suggestions;
   final Map<String, dynamic>? keypoints;
 
+  // 扩展字段 - 用于 UI 展示
+  final double swingSpeed;
+  final double bodyBalance;
+  final double contactHeight;
+
   PoseAnalysis({
     this.swingScore = 0,
     this.balanceScore = 0,
@@ -194,9 +199,27 @@ class PoseAnalysis {
     this.followThroughScore = 0,
     this.suggestions = const [],
     this.keypoints,
+    this.swingSpeed = 0,
+    this.bodyBalance = 0,
+    this.contactHeight = 0,
   });
 
   double get averageScore => (swingScore + balanceScore + hitPointScore + followThroughScore) / 4;
+}
+
+/// 球落点数据
+class BallLandPoint {
+  final double x; // 归一化坐标 0-1
+  final double y; // 归一化坐标 0-1
+  final bool isInBound; // 是否在界内
+  final double speed; // 球速 km/h
+
+  BallLandPoint({
+    required this.x,
+    required this.y,
+    this.isInBound = true,
+    this.speed = 0,
+  });
 }
 
 /// 录制事件

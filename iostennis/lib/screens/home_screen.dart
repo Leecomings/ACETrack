@@ -4,6 +4,7 @@ import '../utils/mock_data.dart';
 import '../widgets/court_map.dart';
 import '../widgets/score_board.dart';
 import '../widgets/speed_table.dart';
+import '../models/tennis_data.dart';
 import '../widgets/pose_overlay.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -77,7 +78,17 @@ class HomeScreen extends StatelessWidget {
                       // 用户姿态监测
                       const Text('  姿态分析', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                       const SizedBox(height: 10),
-                      const PoseOverlayWidget(),
+                      PoseOverlay(
+                        poseAnalysis: PoseAnalysis(
+                          swingScore: 85,
+                          balanceScore: 78,
+                          hitPointScore: 90,
+                          followThroughScore: 82,
+                          swingSpeed: 120.5,
+                          bodyBalance: 87.0,
+                          contactHeight: 2.1,
+                        ),
+                      ),
                       const SizedBox(height: 20),
 
                       // 比分板

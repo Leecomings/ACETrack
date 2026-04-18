@@ -48,6 +48,7 @@ class ScoringProvider extends ChangeNotifier {
   bool get isMatchInProgress => _isMatchInProgress;
   String get currentSet => _currentSet;
   List<String> get gameHistory => List.unmodifiable(_gameHistory);
+  String get serverName => _isServerA ? _playerAName : _playerBName;
 
   void startMatch() {
     _isMatchInProgress = true;

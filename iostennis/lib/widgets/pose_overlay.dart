@@ -283,6 +283,82 @@ class SpeedGaugeOverlay extends StatelessWidget {
   }
 }
 
+/// 迷你姿态覆盖层 - 用于录制界面小窗显示
+class PoseOverlayMini extends StatelessWidget {
+  const PoseOverlayMini({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 100,
+      height: 120,
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24, width: 1),
+      ),
+      child: CustomPaint(
+        painter: _MiniPosePainter(),
+        size: Size.infinite,
+      ),
+    );
+  }
+}
+
+class _MiniPosePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.greenAccent
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    final jointPaint = Paint()
+      ..color = Colors.yellow
+      ..style = PaintingStyle.fill;
+
+    // 简化骨骼关键点
+    final w = size.width;
+    final h = size.height;
+    final keypoints = [
+      Offset(w * 0.5, h * 0.08),  // 头
+      Offset(w * 0.5, h * 0.2),   // 颈
+      Offset(w * 0.65, h * 0.18), // 右肩
+      Offset(w * 0.75, h * 0.3),  // 右肘
+      Offset(w * 0.7, h * 0.4),   // 右手
+      Offset(w * 0.35, h * 0.18), // 左肩
+      Offset(w * 0.25, h * 0.3),  // 左肘
+      Offset(w * 0.3, h * 0.4),   // 左手
+      Offset(w * 0.55, h * 0.45), // 右髋
+      Offset(w * 0.58, h * 0.65), // 右膝
+      Offset(w * 0.57, h * 0.85), // 右脚
+      Offset(w * 0.45, h * 0.45), // 左髋
+      Offset(w * 0.42, h * 0.65), // 左膝
+      Offset(w * 0.43, h * 0.85), // 左脚
+    ];
+
+    // 连线
+    final connections = [
+      [0, 1], [1, 2], [2, 3], [3, 4],
+      [1, 5], [5, 6], [6, 7],
+      [1, 8], [8, 9], [9, 10],
+      [1, 11], [11, 12], [12, 13],
+    ];
+
+    for (final conn in connections) {
+      canvas.drawLine(keypoints[conn[0]], keypoints[conn[1]], paint);
+    }
+
+    // 关节点
+    for (final kp in keypoints) {
+      canvas.drawCircle(kp, 2.5, jointPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
 class _SpeedGaugePainter extends CustomPainter {
   final double speedKmh;
   final double maxSpeed;
