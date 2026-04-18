@@ -28,9 +28,9 @@ jobs:
 
       - name: Create temporary signing keychain
         run: |
-          # 创建临时自签名证书，让 flutter build ios 能通过签名检查
           KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
           KEYCHAIN_PASSWORD="acetrack123"
+          P12_PASSWORD="acetrack456"
 
           # 创建 keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
@@ -38,17 +38,13 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
           # 创建自签名证书
-          CERTIFICATE_PATH="$RUNNER_TEMP/certificate.p12"
           openssl req -x509 -newkey rsa:2048 -keyout "$RUNNER_TEMP/key.pem" -out "$RUNNER_TEMP/cert.pem" \
             -days 365 -nodes -subj "/CN=ACETrack Development/O=ACETrack"
-          openssl pkcs12 -export -out "$CERTIFICATE_PATH" \
-            -inkey "$RUNNER_TEMP/key.pem" -in "$RUNNER_TEMP/cert.pem" -password pass:
-          security import "$CERTIFICATE_PATH" -P "" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          openssl pkcs12 -export -out "$RUNNER_TEMP/certificate.p12" \
+            -inkey "$RUNNER_TEMP/key.pem" -in "$RUNNER_TEMP/cert.pem" -password "pass:$P12_PASSWORD"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
-
-          # 获取 Team ID (自签名没有，用空字符串)
-          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
 
       - name: Build iOS with flutter
         working-directory: iostennis
