@@ -26,60 +26,18 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Create temporary signing identity
-        run: |
-          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
-          KEYCHAIN_PASSWORD="acetrack123"
-          P12_PASSWORD="acetrack456"
-
-          # 创建 keychain
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          # 创建自签名证书
-          openssl req -x509 -newkey rsa:2048 -keyout "$RUNNER_TEMP/key.pem" -out "$RUNNER_TEMP/cert.pem" \
-            -days 365 -nodes -subj "/CN=ACETrack Development/O=PLACEHOLDER"
-          openssl pkcs12 -export -out "$RUNNER_TEMP/certificate.p12" \
-            -inkey "$RUNNER_TEMP/key.pem" -in "$RUNNER_TEMP/cert.pem" -password "pass:$P12_PASSWORD"
-          security import "$RUNNER_TEMP/certificate.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychain -d user -s "$KEYCHAIN_PATH"
-
-      - name: Build iOS with flutter
+      - name: Build iOS
         working-directory: iostennis
         run: |
           flutter pub get
-
-          # 先用 flutter build 生成 Dart 产物和 Xcode 项目配置
           flutter build ios --release --no-codesign
 
-      - name: Build and package IPA
+      - name: Package IPA with ad-hoc signing
         working-directory: iostennis
         run: |
-          # 使用 xcodebuild 构建，带 CODE_SIGNING_ALLOWED=NO
-          # 这样生成的 .app 不带签名，但 Frameworks 内的 dylib 保留原始结构
-          xcodebuild -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -sdk iphoneos \
-            -archivePath build/ios/archive/Runner.xcarchive \
-            archive \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            | tail -20
+          APP_PATH=$(find build/ios -name "Runner.app" -path "*iphoneos*" | head -1)
 
-          # 从 archive 中提取 .app
-          APP_PATH="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
-
-          if [ ! -d "$APP_PATH" ]; then
-            echo "Archive .app not found, trying build output..."
-            APP_PATH=$(find build/ios -name "Runner.app" -path "*iphoneos*" | head -1)
-          fi
-
-          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+          if [ -z "$APP_PATH" ]; then
             echo "ERROR: Runner.app not found!"
             find build -name "Runner.app" || true
             exit 1
@@ -87,16 +45,38 @@ jobs:
 
           echo "Found: $APP_PATH"
 
-          # 检查 Flutter framework 是否存在
-          echo "=== Frameworks in app ==="
+          # 对所有 Frameworks 执行 ad-hoc 签名（关键步骤！）
+          # iOS 要求所有可执行代码必须有有效签名才能加载
+          # ad-hoc 签名 (-) 让 iOS 允许加载这些 dylib
           if [ -d "$APP_PATH/Frameworks" ]; then
-            ls -la "$APP_PATH/Frameworks/"
-          else
-            echo "WARNING: No Frameworks directory!"
+            echo "=== Ad-hoc signing Frameworks ==="
+            for framework in "$APP_PATH/Frameworks"/*.framework; do
+              if [ -d "$framework" ]; then
+                FRAMEWORK_NAME=$(basename "$framework" .framework)
+                FRAMEWORK_EXECUTABLE="$framework/$FRAMEWORK_NAME"
+                if [ -f "$FRAMEWORK_EXECUTABLE" ]; then
+                  echo "Signing: $FRAMEWORK_NAME"
+                  codesign --force --sign - "$FRAMEWORK_EXECUTABLE"
+                fi
+              fi
+            done
+            for dylib in "$APP_PATH/Frameworks"/*.dylib; do
+              if [ -f "$dylib" ]; then
+                echo "Signing: $(basename "$dylib")"
+                codesign --force --sign - "$dylib"
+              fi
+            done
           fi
 
-          # 打包 IPA - 不删除任何签名文件
-          # 爱思助手会整体重签名，保留原始结构更安全
+          # 对主可执行文件也做 ad-hoc 签名
+          echo "Signing main executable"
+          codesign --force --sign - "$APP_PATH/Runner"
+
+          # 验证签名
+          echo "=== Verifying signatures ==="
+          codesign --verify --deep --verbose=2 "$APP_PATH" 2>&1 || true
+
+          # 打包 IPA
           mkdir -p /tmp/ipa_staging/Payload
           cp -r "$APP_PATH" /tmp/ipa_staging/Payload/Runner.app
 
@@ -105,9 +85,9 @@ jobs:
 
           echo "IPA size: $(du -h $GITHUB_WORKSPACE/iostennis/ACETrack.ipa | cut -f1)"
 
-          # 验证 IPA 内容
-          echo "=== IPA contents ==="
-          unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | head -30
+          # 列出 Frameworks 内容
+          echo "=== Frameworks in IPA ==="
+          unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | grep "Frameworks/" | head -20
 
       - name: Upload IPA artifact
         if: success()
@@ -115,8 +95,3 @@ jobs:
         with:
           name: ACETrack-ipa
           path: iostennis/ACETrack.ipa
-
-      - name: Cleanup keychain
-        if: always()
-        run: |
-          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true

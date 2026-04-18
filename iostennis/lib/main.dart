@@ -6,7 +6,7 @@ import 'services/auth_provider.dart';
 import 'services/scoring_provider.dart';
 import 'services/recording_provider.dart';
 import 'services/ai_service.dart';
-import 'screens/splash_screen.dart';
+import 'screens/main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,7 +72,7 @@ class ACETrackApp extends StatelessWidget {
             ),
           ),
         ),
-        home: const SplashScreen(),
+        home: const MainScreen(),
         routes: {
           '/scan': (context) => const _ScanPlaceholderScreen(),
         },
