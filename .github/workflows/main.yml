@@ -37,9 +37,9 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          # 创建自签名证书
+          # 创建自签名证书（使用 PLACEHOLDER 作为 Team ID）
           openssl req -x509 -newkey rsa:2048 -keyout "$RUNNER_TEMP/key.pem" -out "$RUNNER_TEMP/cert.pem" \
-            -days 365 -nodes -subj "/CN=ACETrack Development/O=ACETrack"
+            -days 365 -nodes -subj "/CN=ACETrack Development/O=PLACEHOLDER"
           openssl pkcs12 -export -out "$RUNNER_TEMP/certificate.p12" \
             -inkey "$RUNNER_TEMP/key.pem" -in "$RUNNER_TEMP/cert.pem" -password "pass:$P12_PASSWORD"
           security import "$RUNNER_TEMP/certificate.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
