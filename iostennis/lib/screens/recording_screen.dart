@@ -64,7 +64,10 @@ class _RecordingScreenState extends State<RecordingScreen> with WidgetsBindingOb
         setState(() => _isCameraReady = true);
       }
     } catch (e) {
-      setState(() => _cameraError = '摄像头初始化失败: $e');
+      // 相机初始化失败不应崩溃，显示占位 UI 即可
+      if (mounted) {
+        setState(() => _cameraError = '摄像头初始化失败');
+      }
     }
   }
 

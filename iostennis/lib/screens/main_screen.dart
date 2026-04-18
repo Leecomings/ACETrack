@@ -18,7 +18,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _screens = [
     const HomeScreen(),
-    const RecordingScreen(),
+    const _SafeRecordingScreen(),
     const ScoringScreen(),
     const VideoScreen(),
     const ProfileScreen(),
@@ -82,5 +82,64 @@ class _MainScreenState extends State<MainScreen> {
         ),
       ),
     );
+  }
+}
+
+/// 安全包装 RecordingScreen，防止相机初始化崩溃导致整个 app 黑屏
+class _SafeRecordingScreen extends StatelessWidget {
+  const _SafeRecordingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return ErrorBoundary(child: const RecordingScreen());
+  }
+}
+
+/// 简单的错误边界 Widget
+class ErrorBoundary extends StatefulWidget {
+  final Widget child;
+  const ErrorBoundary({super.key, required this.child});
+
+  @override
+  State<ErrorBoundary> createState() => _ErrorBoundaryState();
+}
+
+class _ErrorBoundaryState extends State<ErrorBoundary> {
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // 捕获异步错误
+    FlutterError.onError = (details) {
+      if (mounted) {
+        setState(() => _error = details.exception);
+      }
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.videocam, size: 64, color: Colors.white24),
+              const SizedBox(height: 12),
+              const Text('录制功能加载失败', style: TextStyle(color: Colors.white54, fontSize: 14)),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => setState(() => _error = null),
+                child: const Text('重试'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return widget.child;
   }
 }

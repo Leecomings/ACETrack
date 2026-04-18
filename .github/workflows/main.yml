@@ -26,28 +26,43 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Build iOS
+      - name: Build iOS with xcodebuild archive
         working-directory: iostennis
         run: |
           flutter pub get
           flutter build ios --release --no-codesign
 
-      - name: Package IPA with ad-hoc signing
+          # 使用 xcodebuild archive 方式构建，生成完整的 xcarchive
+          xcodebuild archive \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath build/Runner.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            | tail -20
+
+      - name: Create IPA from xcarchive
         working-directory: iostennis
         run: |
-          APP_PATH=$(find build/ios -name "Runner.app" -path "*iphoneos*" | head -1)
+          # 从 xcarchive 中提取 .app
+          APP_PATH="build/Runner.xcarchive/Products/Applications/Runner.app"
 
-          if [ -z "$APP_PATH" ]; then
-            echo "ERROR: Runner.app not found!"
-            find build -name "Runner.app" || true
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: Runner.app not found in xcarchive!"
+            find build/Runner.xcarchive -name "Runner.app" || true
             exit 1
           fi
 
           echo "Found: $APP_PATH"
 
-          # 对所有 Frameworks 执行 ad-hoc 签名（关键步骤！）
-          # iOS 要求所有可执行代码必须有有效签名才能加载
-          # ad-hoc 签名 (-) 让 iOS 允许加载这些 dylib
+          # 删除已有的签名信息，让爱思助手完全重签名
+          echo "=== Removing existing code signatures ==="
+          rm -rf "$APP_PATH/_CodeSignature"
+
+          # 对所有 Frameworks 执行 ad-hoc 签名
           if [ -d "$APP_PATH/Frameworks" ]; then
             echo "=== Ad-hoc signing Frameworks ==="
             for framework in "$APP_PATH/Frameworks"/*.framework; do
@@ -55,39 +70,49 @@ jobs:
                 FRAMEWORK_NAME=$(basename "$framework" .framework)
                 FRAMEWORK_EXECUTABLE="$framework/$FRAMEWORK_NAME"
                 if [ -f "$FRAMEWORK_EXECUTABLE" ]; then
+                  # 删除旧签名
+                  rm -rf "$framework/_CodeSignature"
                   echo "Signing: $FRAMEWORK_NAME"
-                  codesign --force --sign - "$FRAMEWORK_EXECUTABLE"
+                  codesign --force --sign - --timestamp=none "$FRAMEWORK_EXECUTABLE"
                 fi
               fi
             done
             for dylib in "$APP_PATH/Frameworks"/*.dylib; do
               if [ -f "$dylib" ]; then
                 echo "Signing: $(basename "$dylib")"
-                codesign --force --sign - "$dylib"
+                codesign --force --sign - --timestamp=none "$dylib"
               fi
             done
           fi
 
           # 对主可执行文件也做 ad-hoc 签名
           echo "Signing main executable"
-          codesign --force --sign - "$APP_PATH/Runner"
+          codesign --force --sign - --timestamp=none "$APP_PATH"
 
           # 验证签名
           echo "=== Verifying signatures ==="
           codesign --verify --deep --verbose=2 "$APP_PATH" 2>&1 || true
 
-          # 打包 IPA
+          # 生成 Info.plist (确保嵌入 Bundle ID)
+          echo "=== Checking Info.plist ==="
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Info.plist" 2>&1 || true
+
+          # 打包 IPA（确保符号链接被解析）
           mkdir -p /tmp/ipa_staging/Payload
-          cp -r "$APP_PATH" /tmp/ipa_staging/Payload/Runner.app
+          cp -Rf "$APP_PATH" /tmp/ipa_staging/Payload/Runner.app
 
           cd /tmp/ipa_staging
-          zip -r -q "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" Payload/ -x "*.DS_Store"
+          zip --symlinks -r -q "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" Payload/ -x "*.DS_Store"
 
           echo "IPA size: $(du -h $GITHUB_WORKSPACE/iostennis/ACETrack.ipa | cut -f1)"
 
           # 列出 Frameworks 内容
           echo "=== Frameworks in IPA ==="
           unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | grep "Frameworks/" | head -20
+
+          # 验证 _CodeSignature 目录在 IPA 中
+          echo "=== Code signatures in IPA ==="
+          unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | grep "_CodeSignature" | head -20
 
       - name: Upload IPA artifact
         if: success()

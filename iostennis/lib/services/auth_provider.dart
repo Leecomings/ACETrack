@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'api_service.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final SharedPreferences _prefs;
+  final SharedPreferences? _prefs;
   final ApiService _api = ApiService();
 
   bool _isLoggedIn = false;
@@ -23,13 +23,15 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> _init() async {
-    final token = _prefs.getString('token');
-    final userInfoStr = _prefs.getString('userInfo');
-    if (token != null) {
-      _api.loadToken();
-      _isLoggedIn = true;
-      if (userInfoStr != null) {
-        _userInfo = jsonDecode(userInfoStr);
+    if (_prefs != null) {
+      final token = _prefs!.getString('token');
+      final userInfoStr = _prefs!.getString('userInfo');
+      if (token != null) {
+        _api.loadToken();
+        _isLoggedIn = true;
+        if (userInfoStr != null) {
+          _userInfo = jsonDecode(userInfoStr);
+        }
       }
     }
     _isLoading = false;

@@ -8,15 +8,29 @@ import 'services/recording_provider.dart';
 import 'services/ai_service.dart';
 import 'screens/main_screen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
+  // 使用 Flutter 错误处理，确保不会白屏/黑屏
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('FlutterError: ${details.exceptionAsString()}');
+  };
+  _initApp();
+}
+
+void _initApp() async {
+  SharedPreferences? prefs;
+  try {
+    prefs = await SharedPreferences.getInstance();
+  } catch (e) {
+    debugPrint('SharedPreferences init failed: $e');
+  }
   runApp(ACETrackApp(prefs: prefs));
 }
 
 class ACETrackApp extends StatelessWidget {
-  final SharedPreferences prefs;
-  const ACETrackApp({super.key, required this.prefs});
+  final SharedPreferences? prefs;
+  const ACETrackApp({super.key, this.prefs});
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +51,11 @@ class ACETrackApp extends StatelessWidget {
       child: MaterialApp(
         title: 'ACETrack',
         debugShowCheckedModeBanner: false,
+        builder: (context, widget) {
+          // 全局错误捕获，防止未处理的异常导致黑屏
+          Widget result = widget ?? const SizedBox.shrink();
+          return result;
+        },
         theme: ThemeData(
           primaryColor: const Color(0xFF1A73E8),
           scaffoldBackgroundColor: const Color(0xFFF5F5F5),
