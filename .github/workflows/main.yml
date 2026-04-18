@@ -85,7 +85,7 @@ jobs:
           cp -r "$APP_PATH" /tmp/ipa_staging/Payload/
 
           cd /tmp/ipa_staging
-          zip -r -q -x "*.DS_Store" "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" Payload/
+          zip -r -q "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" Payload/ -x "*.DS_Store"
 
           echo "IPA size: $(du -h $GITHUB_WORKSPACE/iostennis/ACETrack.ipa | cut -f1)"
 
