@@ -32,7 +32,7 @@ jobs:
           flutter pub get
           flutter build ios --release --no-codesign
 
-      - name: Package IPA (completely unsigned)
+      - name: Package IPA (properly signed Frameworks)
         working-directory: iostennis
         run: |
           APP_PATH=$(find build/ios -name "Runner.app" -path "*iphoneos*" | head -1)
@@ -46,58 +46,78 @@ jobs:
           echo "Found: $APP_PATH"
 
           # ============================================
-          # 关键修复：彻底移除所有签名信息
+          # 关键修复 v3：AMFI constraint violation
           # ============================================
-          # 黑屏根因：iOS 签名验证失败
-          # - 之前对 Frameworks 做 ad-hoc 签名留下了签名信息
-          # - 爱思助手只重签 Runner，不重签 Frameworks
-          # - ad-hoc 签名和个人开发者签名的 Team ID 不同
-          # - iOS 检测到签名不一致，拒绝加载 app
+          # 设备日志显示所有 Frameworks 报错：
+          #   AMFI: constraint violation .../Flutter.framework/Flutter
+          #     has entitlements but is not a main binary
           #
-          # 解决方案：完全不做任何预签名，让爱思助手对
-          # Runner 和所有 Frameworks 统一签名，确保签名一致
+          # 根因：爱思助手重签名时，把主 app 的 entitlements
+          # （application-identifier, keychain-access-groups 等）
+          # 错误地注入到了所有 Framework 中。
+          # iOS AMFI 不允许非主二进制的 Framework 携带这些 entitlements。
+          #
+          # 之前尝试的方案：
+          # v1: ad-hoc 签名 Frameworks → 签名 Team ID 不一致 → 黑屏
+          # v2: 完全不签名 → 爱思助手给 Frameworks 注入 entitlements → 黑屏
+          #
+          # v3 方案：对 Frameworks 做 ad-hoc 签名但**不带 entitlements**，
+          # 这样爱思助手重签名时会保留 Frameworks 原有的签名结构，
+          # 不会注入主 app 的 entitlements。
+          # 同时对 Runner 主二进制不预签名，让爱思助手完成主签名。
           # ============================================
 
-          echo "=== Step 1: Remove ALL code signatures from Runner.app ==="
+          echo "=== Step 1: Clean main app signature ==="
           rm -rf "$APP_PATH/_CodeSignature"
           rm -f "$APP_PATH/embedded.mobileprovision"
+          codesign --remove-signature "$APP_PATH/Runner" 2>/dev/null || true
 
-          echo "=== Step 2: Remove ALL code signatures from Frameworks ==="
+          echo "=== Step 2: Sign Frameworks with ad-hoc (NO entitlements) ==="
           if [ -d "$APP_PATH/Frameworks" ]; then
             for framework in "$APP_PATH/Frameworks"/*.framework; do
               if [ -d "$framework" ]; then
                 FRAMEWORK_NAME=$(basename "$framework" .framework)
-                echo "  Cleaning: $FRAMEWORK_NAME"
-                rm -rf "$framework/_CodeSignature"
-                # 不做任何 codesign 操作！
+                FRAMEWORK_EXECUTABLE="$framework/$FRAMEWORK_NAME"
+                if [ -f "$FRAMEWORK_EXECUTABLE" ]; then
+                  # 删除旧的签名目录
+                  rm -rf "$framework/_CodeSignature"
+                  echo "  Signing (no-entitlements): $FRAMEWORK_NAME"
+                  # ad-hoc 签名，关键是 --no-entitlements 确保 Framework 不携带 entitlements
+                  # 这样爱思助手重签名时不会给 Framework 注入主 app 的 entitlements
+                  codesign --force --sign - --timestamp=none "$FRAMEWORK_EXECUTABLE"
+                fi
               fi
             done
             for dylib in "$APP_PATH/Frameworks"/*.dylib; do
               if [ -f "$dylib" ]; then
-                echo "  Cleaning: $(basename "$dylib")"
-                # dylib 没有独立的 _CodeSignature 目录
-                # 但需要移除嵌入的签名（codesign --remove-signature）
-                codesign --remove-signature "$dylib" 2>/dev/null || true
+                echo "  Signing (no-entitlements): $(basename "$dylib")"
+                codesign --force --sign - --timestamp=none "$dylib"
               fi
             done
           fi
 
-          echo "=== Step 3: Remove signature from Runner binary itself ==="
-          codesign --remove-signature "$APP_PATH/Runner" 2>/dev/null || true
-
-          echo "=== Step 4: Verify no signatures remain ==="
-          echo "--- Checking _CodeSignature directories ---"
-          find "$APP_PATH" -name "_CodeSignature" -type d || echo "  (none found - GOOD)"
-          echo "--- Checking code signatures ---"
-          codesign -dv "$APP_PATH" 2>&1 || echo "  Runner.app: unsigned (GOOD)"
+          echo "=== Step 3: Verify Frameworks have NO entitlements ==="
           if [ -d "$APP_PATH/Frameworks" ]; then
             for framework in "$APP_PATH/Frameworks"/*.framework; do
               if [ -d "$framework" ]; then
                 FRAMEWORK_NAME=$(basename "$framework" .framework)
-                codesign -dv "$framework/$FRAMEWORK_NAME" 2>&1 || echo "  $FRAMEWORK_NAME: unsigned (GOOD)"
+                FRAMEWORK_EXECUTABLE="$framework/$FRAMEWORK_NAME"
+                ENTITLEMENTS=$(codesign -d --entitlements :- "$FRAMEWORK_EXECUTABLE" 2>&1 || true)
+                if echo "$ENTITLEMENTS" | grep -q "application-identifier\|keychain-access-groups"; then
+                  echo "  ERROR: $FRAMEWORK_NAME has entitlements! Removing..."
+                  # 如果发现有 entitlements，创建空的 entitlements 文件重新签名
+                  echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict></dict></plist>' > /tmp/empty_entitlements.plist
+                  codesign --force --sign - --timestamp=none --entitlements /tmp/empty_entitlements.plist "$FRAMEWORK_EXECUTABLE"
+                  rm -f /tmp/empty_entitlements.plist
+                else
+                  echo "  $FRAMEWORK_NAME: no entitlements (GOOD)"
+                fi
               fi
             done
           fi
+
+          echo "=== Step 4: Verify Runner is unsigned ==="
+          codesign -dv "$APP_PATH/Runner" 2>&1 || echo "  Runner: unsigned (GOOD - 爱思助手将签名)"
 
           echo "=== Step 5: Package IPA ==="
           mkdir -p /tmp/ipa_staging/Payload
