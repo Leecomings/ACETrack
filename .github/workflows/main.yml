@@ -26,7 +26,7 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Create temporary signing keychain
+      - name: Create temporary signing identity
         run: |
           KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
           KEYCHAIN_PASSWORD="acetrack123"
@@ -37,7 +37,7 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          # 创建自签名证书（使用 PLACEHOLDER 作为 Team ID）
+          # 创建自签名证书
           openssl req -x509 -newkey rsa:2048 -keyout "$RUNNER_TEMP/key.pem" -out "$RUNNER_TEMP/cert.pem" \
             -days 365 -nodes -subj "/CN=ACETrack Development/O=PLACEHOLDER"
           openssl pkcs12 -export -out "$RUNNER_TEMP/certificate.p12" \
@@ -50,14 +50,36 @@ jobs:
         working-directory: iostennis
         run: |
           flutter pub get
+
+          # 先用 flutter build 生成 Dart 产物和 Xcode 项目配置
           flutter build ios --release --no-codesign
 
-      - name: Package IPA
+      - name: Build and package IPA
         working-directory: iostennis
         run: |
-          APP_PATH=$(find build/ios -name "Runner.app" -path "*iphoneos*" | head -1)
+          # 使用 xcodebuild 构建，带 CODE_SIGNING_ALLOWED=NO
+          # 这样生成的 .app 不带签名，但 Frameworks 内的 dylib 保留原始结构
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            | tail -20
 
-          if [ -z "$APP_PATH" ]; then
+          # 从 archive 中提取 .app
+          APP_PATH="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Archive .app not found, trying build output..."
+            APP_PATH=$(find build/ios -name "Runner.app" -path "*iphoneos*" | head -1)
+          fi
+
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
             echo "ERROR: Runner.app not found!"
             find build -name "Runner.app" || true
             exit 1
@@ -65,29 +87,27 @@ jobs:
 
           echo "Found: $APP_PATH"
 
-          # 清除签名 (爱思助手会重新签名)
-          rm -rf "$APP_PATH/_CodeSignature"
+          # 检查 Flutter framework 是否存在
+          echo "=== Frameworks in app ==="
           if [ -d "$APP_PATH/Frameworks" ]; then
-            for framework in "$APP_PATH/Frameworks"/*.framework; do
-              if [ -d "$framework" ]; then
-                rm -rf "$framework/_CodeSignature"
-              fi
-            done
-            for dylib in "$APP_PATH/Frameworks"/*.dylib; do
-              if [ -f "$dylib" ]; then
-                codesign --remove-signature "$dylib" 2>/dev/null || true
-              fi
-            done
+            ls -la "$APP_PATH/Frameworks/"
+          else
+            echo "WARNING: No Frameworks directory!"
           fi
 
-          # 打包 IPA
+          # 打包 IPA - 不删除任何签名文件
+          # 爱思助手会整体重签名，保留原始结构更安全
           mkdir -p /tmp/ipa_staging/Payload
-          cp -r "$APP_PATH" /tmp/ipa_staging/Payload/
+          cp -r "$APP_PATH" /tmp/ipa_staging/Payload/Runner.app
 
           cd /tmp/ipa_staging
           zip -r -q "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" Payload/ -x "*.DS_Store"
 
           echo "IPA size: $(du -h $GITHUB_WORKSPACE/iostennis/ACETrack.ipa | cut -f1)"
+
+          # 验证 IPA 内容
+          echo "=== IPA contents ==="
+          unzip -l "$GITHUB_WORKSPACE/iostennis/ACETrack.ipa" | head -30
 
       - name: Upload IPA artifact
         if: success()
